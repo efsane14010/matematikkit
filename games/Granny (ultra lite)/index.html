@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>Unity WebGL Player | Granny</title>
+
+  <link rel="shortcut icon" href="TemplateData/favicon.ico">
+  <script src="TemplateData/UnityProgress.js"></script>
+  <script src="Build/UnityLoader.js"></script>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+      background: black;
+    }
+
+    #unityContainer {
+      width: 100vw;
+      height: 100vh;
+    }
+
+  #loading-text {
+  font-weight: bold;
+  background: linear-gradient(
+    270deg,
+    #ff0000,
+    #ff7f00,
+    #ffff00,
+    #00ff00,
+    #0000ff,
+    #4b0082,
+    #8f00ff
+  );
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: rainbow 3s ease infinite;
+}
+
+@keyframes rainbow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+  </style>
+<div id="loading-text"
+    style="color: white; font-size: 48px; font-family: cursive; text-align: center; margin-top: 20px;"> LOADING...
+  </div>
+  <script>
+    var loadingText = document.querySelector("#loading-text");
+    let totalBytes = 0;
+    let loadedBytes = 0;
+
+    function candidateUrls(url) {
+      const abs = new URL(url, document.baseURI).href;
+      const list = [abs];
+      const m = abs.match(/^https:\/\/(?:cdn|fastly|gcore|testingcf|originfastly)\.jsdelivr\.net\/gh\/([^\/@]+)\/([^\/@]+)@([^\/]+)\/(.*)$/);
+      if (m) {
+        const user = m[1], repo = m[2], ref = m[3], path = m[4];
+        list.push("https://fastly.jsdelivr.net/gh/" + user + "/" + repo + "@" + ref + "/" + path);
+        list.push("https://gcore.jsdelivr.net/gh/" + user + "/" + repo + "@" + ref + "/" + path);
+        list.push("https://raw.githubusercontent.com/" + user + "/" + repo + "/" + ref + "/" + path);
+      }
+      return Array.from(new Set(list));
+    }
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    async function fetchOnce(url) {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      const reader = response.body.getReader();
+      let chunks = [];
+      let received = 0;
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          received += value.length;
+          loadedBytes += value.length;
+          chunks.push(value);
+          let mbDone = (loadedBytes / (1024 * 1024)).toFixed(2);
+          let mbTotal = '97.16';
+          loadingText.textContent = `LOADING... ${mbDone} MB / ${mbTotal} MB`;
+        }
+      } catch (e) {
+        loadedBytes -= received;
+        throw e;
+      }
+      let fullBuffer = new Uint8Array(received);
+      let offset = 0;
+      for (let chunk of chunks) {
+        fullBuffer.set(chunk, offset);
+        offset += chunk.length;
+      }
+      return fullBuffer.buffer;
+    }
+
+    async function fetchWithProgress(url) {
+      const urls = candidateUrls(url);
+      const rounds = 4;
+      let lastErr = "unknown error";
+      for (let round = 0; round < rounds; round++) {
+        for (const u of urls) {
+          try {
+            return await fetchOnce(u);
+          } catch (e) {
+            lastErr = (e && e.message ? e.message : String(e)) + " from " + u;
+            console.warn("download failed, will retry:", lastErr);
+          }
+        }
+        await sleep(1500 * (round + 1));
+      }
+      throw new Error("could not download " + urls[0] + " (last error: " + lastErr + "). Open that address in a new browser tab: if it shows 404, the file is not on your host/CDN yet (upload incomplete, or the CDN has not picked it up - wait a few minutes, purge the CDN, or use a commit hash in <base href>).");
+    }
+
+    const EXPECTED_PARTS = [{"size": 20000000, "sha256": "304b3f175783ff1070e78031a023e7855fc5075c060098cae9d225c801615944"}, {"size": 20000000, "sha256": "bf543026edeeac6ff0a08cdf516db0380a45a3428f26bf34070bef674c2d9b2a"}, {"size": 20000000, "sha256": "f63ea38868be84f668617f253ea522d675a3cdd8f3843ee8a61564ea158454f9"}, {"size": 20000000, "sha256": "ca6a3ae6efb6ca1253427066853adff87141ff021de4d80c4c8b284456654c07"}, {"size": 20000000, "sha256": "8c8a73e7930bf50bf651f465d3be67ccf16274a49e1957a9aec185819988fafc"}, {"size": 1884854, "sha256": "5070684648a1d2483fd78b2812e7596fdf2eab9c7e278a8af4cd9e240515bc91"}];
+
+    function showFatal(err) {
+      console.error(err);
+      var el = document.querySelector("#loading-text");
+      if (!el) { el = document.createElement("div"); el.id = "loading-text"; document.body.appendChild(el); }
+      el.style.background = "none";
+      el.style.animation = "none";
+      el.style.webkitTextFillColor = "#ff5555";
+      el.style.color = "#ff5555";
+      el.style.fontSize = "20px";
+      el.style.fontFamily = "monospace";
+      el.style.padding = "20px";
+      el.style.textAlign = "left";
+      el.textContent = "LOADING FAILED: " + (err && err.message ? err.message : err);
+    }
+
+    async function sha256Hex(buf) {
+      if (!(window.crypto && crypto.subtle)) return null;
+      const d = await crypto.subtle.digest("SHA-256", buf);
+      return Array.from(new Uint8Array(d)).map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    async function mergeFiles(fileParts, expected) {
+      const buffers = new Array(fileParts.length);
+      let next = 0;
+      async function worker() {
+        while (next < fileParts.length) {
+          const i = next++;
+          buffers[i] = await fetchWithProgress(fileParts[i]);
+        }
+      }
+      await Promise.all([worker(), worker(), worker()]);
+      for (let i = 0; i < buffers.length; i++) {
+        const e = expected[i];
+        const hint = " Your CDN or browser is serving an old or wrong file: purge the CDN cache (or point <base href> at a new commit hash), clear the site data, and reload.";
+        if (buffers[i].byteLength !== e.size) {
+          throw new Error("data part " + (i + 1) + " has the wrong size (" + buffers[i].byteLength + " bytes, expected " + e.size + ")." + hint);
+        }
+        const h = await sha256Hex(buffers[i]);
+        if (h && h !== e.sha256) {
+          throw new Error("data part " + (i + 1) + " does not match the expected file (checksum mismatch)." + hint);
+        }
+      }
+      const mergedBlob = new Blob(buffers);
+      return URL.createObjectURL(mergedBlob);
+    }
+
+    function getParts(file, start, end) {
+      let parts = [];
+      for (let i = start; i <= end; i++) {
+        parts.push(file + ".part" + i);
+      }
+      return parts;
+    }
+    (async () => {
+      const [dataUrl] = await Promise.all([
+        mergeFiles(getParts("Build/d105/GrannyPortButBetter.data.unityweb", 1, 6), EXPECTED_PARTS)
+      ]);
+            const originalOpen = XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+          if (url.includes("GrannyPortButBetter.data.unityweb")) {
+              url = dataUrl;
+          }
+          return originalOpen.call(this, method, url, ...rest);
+      };
+          var unityInstance = UnityLoader.instantiate(
+      "unityContainer",
+      "Build/GrannyPortButBetter.json",
+      { onProgress: UnityProgress }
+    );
+    loadingText.remove();
+    })().catch(showFatal);
+  </script>
+</head>
+
+<body>
+
+  <div id="unityContainer"></div>
+</body>
+</html>
