@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="color-scheme" content="dark">
+  <title>Evil Nun: School's Out — Offline</title>
+  <link rel="stylesheet" href="TemplateData/style.css">
+  <style>
+    html, body { width:100%; height:100%; margin:0; overflow:hidden; background:#090909; }
+    body { color:#fff; font-family:Arial,Helvetica,sans-serif; }
+    #unity-container { width:100%; height:100%; position:relative; }
+    #unity-canvas { width:100%; height:100%; display:block; background:#090909; outline:none; }
+    #loading-cover { z-index:5; background:#090909; padding:20px; box-sizing:border-box; }
+    #unity-logo img { max-width:min(80vw, 480px); max-height:35vh; object-fit:contain; }
+    #unity-loading-bar { width:min(560px, 90vw); }
+    #unity-progress-bar-empty { width:100%; box-sizing:border-box; }
+    #status-message { max-width:560px; margin-top:10px; color:#ddd; text-align:center; font-size:14px; line-height:1.5; }
+    #error-panel { display:none; max-width:720px; padding:22px; margin:20px auto; color:#fff; background:#241717; border:1px solid #7e3333; border-radius:10px; font:14px/1.5 Arial,sans-serif; }
+    #error-panel strong { display:block; font-size:18px; margin-bottom:8px; }
+    #error-details { white-space:pre-wrap; overflow-wrap:anywhere; color:#ffd2d2; }
+    #unity-fullscreen-button { z-index:8; cursor:pointer; }
+  </style>
+</head>
+<body class="dark">
+  <div id="unity-container" class="unity-desktop">
+    <canvas id="unity-canvas" tabindex="-1" aria-label="Evil Nun: School's Out game"></canvas>
+  </div>
+  <div id="loading-cover">
+    <div id="unity-loading-bar">
+      <div id="unity-logo"><img src="logo.png" alt="Evil Nun: School's Out"></div>
+      <div id="unity-progress-bar-empty"><div id="unity-progress-bar-full"></div></div>
+      <div class="spinner" aria-hidden="true"></div>
+      <div id="status-message">Loading the offline game files… The first load may take a little while.</div>
+      <div id="error-panel"><strong>The game could not start</strong><div id="error-details"></div><p>Make sure you started the game using <b>Start_Game.bat</b>, not by opening index.html directly. Keep the launcher window open while playing.</p></div>
+    </div>
+  </div>
+  <div id="unity-fullscreen-button" title="Fullscreen" aria-label="Fullscreen" style="display:none"></div>
+  <script>
+    (function () {
+      'use strict';
+      const buildUrl = 'Build';
+      const config = {
+        dataUrl: buildUrl + '/EvilNunSchoolsOut.data.unityweb',
+        frameworkUrl: buildUrl + '/EvilNunSchoolsOut.framework.js.unityweb',
+        codeUrl: buildUrl + '/EvilNunSchoolsOut.wasm.unityweb',
+        streamingAssetsUrl: 'StreamingAssets',
+        companyName: 'Poison Games',
+        productName: "Evil Nun: School's Out",
+        productVersion: '1.0.1'
+      };
+      const container = document.getElementById('unity-container');
+      const canvas = document.getElementById('unity-canvas');
+      const cover = document.getElementById('loading-cover');
+      const progressEmpty = document.getElementById('unity-progress-bar-empty');
+      const progressFull = document.getElementById('unity-progress-bar-full');
+      const spinner = document.querySelector('.spinner');
+      const status = document.getElementById('status-message');
+      const errorPanel = document.getElementById('error-panel');
+      const errorDetails = document.getElementById('error-details');
+      const fullscreenButton = document.getElementById('unity-fullscreen-button');
+
+      function showError(error) {
+        spinner.style.display = 'none';
+        progressEmpty.style.display = 'none';
+        status.style.display = 'none';
+        errorPanel.style.display = 'block';
+        errorDetails.textContent = String(error && (error.message || error) || 'Unknown loading error');
+      }
+
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        container.className = 'unity-mobile';
+        config.devicePixelRatio = 1;
+      }
+
+      const script = document.createElement('script');
+      script.src = buildUrl + '/EvilNunSchoolsOut.loader.js';
+      script.onload = function () {
+        if (typeof createUnityInstance !== 'function') {
+          showError('The Unity loader was downloaded but did not initialize.');
+          return;
+        }
+        createUnityInstance(canvas, config, function (progress) {
+          spinner.style.display = 'none';
+          progressEmpty.style.display = '';
+          progressFull.style.width = (100 * progress) + '%';
+          status.textContent = 'Loading game… ' + Math.round(progress * 100) + '%';
+        }).then(function (instance) {
+          cover.style.display = 'none';
+          const canFullscreen = ['requestFullscreen','webkitRequestFullscreen','mozRequestFullScreen','msRequestFullscreen'].some(function (key) { return key in canvas; });
+          if (canFullscreen) {
+            fullscreenButton.style.display = '';
+            fullscreenButton.onclick = function () { instance.SetFullscreen(1); };
+          }
+        }).catch(showError);
+      };
+      script.onerror = function () { showError('Could not load the local Unity loader: ' + script.src); };
+      document.body.appendChild(script);
+    })();
+  </script>
+</body>
+</html>
