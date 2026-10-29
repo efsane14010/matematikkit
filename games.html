@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Oyunlar | HesapKit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  .nav { display:flex; justify-content:center; gap:10px; margin-top:14px; flex-wrap:wrap; }
+  .nav a { color:#fff; text-decoration:none; font-weight:700; padding:8px 18px; border-radius:999px; background:rgba(255,255,255,.22); }
+  .nav a.on { background:var(--yellow); color:var(--ink); box-shadow:0 4px 0 rgba(29,27,58,.25); }
+  .ad { position:relative; z-index:1; max-width:970px; margin:14px auto 0; text-align:center; }
+  .ad:empty { display:none; }
+  html.framed .nav { display:none; }
+  :root {
+    --ink:#1d1b3a; --card:#ffffff; --muted:#6b6894;
+    --pink:#ff5c93; --yellow:#ffd23f; --teal:#2ec4b6; --blue:#4d7cff; --purple:#7b4dff;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; min-height:100%; }
+  body {
+    font-family:"Baloo 2",system-ui,sans-serif; color:var(--ink);
+    background:
+      radial-gradient(circle at 12% 8%, #ff9ad1 0, transparent 38%),
+      radial-gradient(circle at 88% 12%, #ffe27a 0, transparent 34%),
+      radial-gradient(circle at 80% 92%, #7be3d6 0, transparent 40%),
+      linear-gradient(160deg,#8f6bff,#4d7cff 55%,#38c6ff);
+    background-attachment:fixed;
+  }
+  /* floating decorations */
+  .bubbles { position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:0; }
+  .bubbles i { position:absolute; bottom:-80px; border-radius:50%; background:rgba(255,255,255,.18); animation:rise linear infinite; }
+  @keyframes rise { to { transform:translateY(-120vh); } }
+
+  header { position:relative; z-index:1; text-align:center; padding:34px 16px 10px; }
+  .logo { display:inline-flex; align-items:center; gap:12px; font-size:clamp(2rem,6vw,3.4rem); font-weight:800; color:#fff;
+          text-shadow:0 4px 0 rgba(29,27,58,.25); letter-spacing:.5px; }
+  .logo span.dot { display:inline-grid; place-items:center; width:1.2em; height:1.2em; border-radius:30%; background:var(--yellow);
+          box-shadow:0 4px 0 rgba(29,27,58,.25); transform:rotate(-8deg); font-size:.9em; }
+  .tag { color:#fff; opacity:.92; font-weight:500; margin-top:4px; }
+
+  .tools { position:relative; z-index:1; display:flex; flex-wrap:wrap; justify-content:center; gap:10px; padding:14px 16px 4px; }
+  #search { width:min(420px,92vw); padding:12px 20px; font:inherit; font-size:1.1rem; border:0; border-radius:999px; outline:0;
+            box-shadow:0 6px 0 rgba(29,27,58,.18); }
+  #search:focus { box-shadow:0 6px 0 rgba(29,27,58,.18), 0 0 0 4px rgba(255,255,255,.6); }
+
+  #grid { position:relative; z-index:1; display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:22px;
+          max-width:1100px; margin:0 auto; padding:22px 20px 120px; }
+  .card { background:var(--card); border-radius:26px; overflow:hidden; cursor:pointer; text-align:left; border:0; padding:0; font:inherit; color:inherit;
+          box-shadow:0 8px 0 rgba(29,27,58,.18); transition:transform .15s ease, box-shadow .15s ease; }
+  .card:hover, .card:focus-visible { transform:translateY(-6px) rotate(-1deg); box-shadow:0 14px 0 rgba(29,27,58,.18); outline:0; }
+  .card:active { transform:translateY(0); box-shadow:0 4px 0 rgba(29,27,58,.18); }
+  .cover { position:relative; aspect-ratio:4/3; display:grid; place-items:center; overflow:hidden; }
+  .cover img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .cover .emoji { font-size:4.6rem; filter:drop-shadow(0 6px 0 rgba(0,0,0,.18)); transition:transform .2s; z-index:1; }
+  .card:hover .emoji { transform:scale(1.15) rotate(6deg); }
+  .cover .blob { position:absolute; border-radius:50%; background:rgba(255,255,255,.28); }
+  .info { padding:12px 16px 16px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .title { font-weight:800; font-size:1.2rem; line-height:1.1; }
+  .sub { color:var(--muted); font-size:.85rem; font-weight:500; }
+  .play { flex:none; width:42px; height:42px; border-radius:50%; background:var(--pink); color:#fff; display:grid; place-items:center;
+          font-size:1.1rem; box-shadow:0 4px 0 rgba(29,27,58,.2); }
+  .empty { grid-column:1/-1; text-align:center; color:#fff; font-size:1.3rem; padding:30px; }
+
+  /* player */
+  #player { display:none; position:fixed; inset:0; z-index:50; background:#120f2b; flex-direction:column; }
+  #player.open { display:flex; }
+  .bar { display:flex; align-items:center; gap:10px; padding:10px 14px; background:linear-gradient(90deg,var(--purple),var(--blue)); color:#fff; }
+  .bar b { flex:1; font-size:1.2rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .btn { font:inherit; font-weight:700; border:0; cursor:pointer; padding:8px 18px; border-radius:999px; background:var(--yellow); color:var(--ink);
+         box-shadow:0 4px 0 rgba(0,0,0,.25); }
+  .btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.25); }
+  #frame { flex:1; width:100%; border:0; background:#000; }
+
+  /* chat */
+  #chatBtn { position:fixed; left:18px; bottom:18px; z-index:40; width:62px; height:62px; border-radius:50%; border:0; cursor:pointer;
+             background:var(--yellow); font-size:1.8rem; box-shadow:0 6px 0 rgba(29,27,58,.25); }
+  #chatBtn:hover { transform:scale(1.07) rotate(-6deg); }
+  #chatBtn .badge { position:absolute; top:-4px; right:-4px; min-width:22px; height:22px; border-radius:11px; background:var(--pink); color:#fff;
+                    font:700 .8rem/22px "Baloo 2",sans-serif; display:none; padding:0 5px; }
+  #chat { position:fixed; left:18px; bottom:92px; z-index:41; width:min(340px,calc(100vw - 36px)); height:min(460px,65vh);
+          display:none; flex-direction:column; background:#fff; border-radius:24px; overflow:hidden; box-shadow:0 12px 0 rgba(29,27,58,.2),0 20px 40px rgba(0,0,0,.25); }
+  #chat.open { display:flex; }
+  .chead { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; color:#fff; font-weight:800;
+           background:linear-gradient(90deg,var(--pink),var(--purple)); }
+  .chead small { font-weight:500; opacity:.9; display:block; font-size:.72rem; line-height:1; }
+  .chead button { border:0; background:rgba(255,255,255,.25); color:#fff; border-radius:50%; width:30px; height:30px; cursor:pointer; font-size:1rem; }
+  #msgs { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px; background:#f6f4ff; }
+  .msg { max-width:85%; padding:7px 12px; border-radius:16px; background:#fff; box-shadow:0 2px 0 rgba(29,27,58,.1); word-wrap:break-word; }
+  .msg .who { display:block; font-size:.75rem; font-weight:800; }
+  .msg.me { align-self:flex-end; background:var(--teal); color:#fff; }
+  .msg.me .who { color:#eafffb; }
+  .note { align-self:center; font-size:.78rem; color:var(--muted); text-align:center; }
+  .cform { display:flex; gap:6px; padding:10px; border-top:2px solid #eee; }
+  .cform input { flex:1; min-width:0; padding:9px 14px; font:inherit; border:2px solid #e5e1ff; border-radius:999px; outline:0; }
+  .cform input:focus { border-color:var(--purple); }
+  .cform button { border:0; border-radius:999px; padding:0 16px; font:700 1rem "Baloo 2",sans-serif; background:var(--pink); color:#fff; cursor:pointer; }
+  #nameForm { padding:16px; display:flex; flex-direction:column; gap:10px; }
+  #nameForm input { padding:10px 14px; font:inherit; border:2px solid #e5e1ff; border-radius:999px; outline:0; }
+</style>
+</head>
+<body>
+<script>try { if (window.self !== window.top) document.documentElement.classList.add("framed"); } catch (e) { document.documentElement.classList.add("framed"); }</script>
+<div class="bubbles" id="bubbles"></div>
+
+<header>
+  <div class="logo"><span class="dot">🎮</span> HesapKit Oyunlar</div>
+  <div class="tag">Bir oyun seç ve oyna!</div>
+  <nav class="nav"><a href="index.html">🧮 Hesap Makinesi</a><a href="games.html" class="on">🎮 Oyunlar</a></nav>
+</header>
+
+<div class="tools"><input id="search" type="search" placeholder="🔍  Oyun ara..." autocomplete="off"></div>
+<div class="ad" id="adTop"><!-- REKLAM KODU BURAYA (ör. AdSense) --></div>
+<main id="grid"></main>
+<div class="ad" id="adBottom"><!-- REKLAM KODU BURAYA --></div>
+
+<div id="player">
+  <div class="bar">
+    <button class="btn" onclick="closeGame()">← Geri</button>
+    <b id="ptitle"></b>
+    <button class="btn" onclick="goFull()">⛶ Tam ekran</button>
+  </div>
+  <iframe id="frame" allow="fullscreen; autoplay; gamepad" allowfullscreen></iframe>
+</div>
+
+<button id="chatBtn" aria-label="Sohbeti aç">💬<span class="badge" id="badge">0</span></button>
+<section id="chat" aria-label="Sohbet">
+  <div class="chead"><div>Sohbet<small id="mode"></small></div><button id="chatClose" aria-label="Sohbeti kapat">✕</button></div>
+  <form id="nameForm">
+    <div>Sohbete katılmak için bir takma ad seç 👋</div>
+    <input id="nameIn" maxlength="16" placeholder="Takma ad" required>
+    <button class="btn" type="submit">Katıl</button>
+  </form>
+  <div id="msgs" style="display:none"></div>
+  <form class="cform" id="chatForm" style="display:none">
+    <input id="msgIn" maxlength="200" placeholder="Bir şey yaz..." autocomplete="off">
+    <button type="submit">Gönder</button>
+  </form>
+</section>
+
+<script>
+/* =====================================================
+   GAMES
+   Oyun eklemek = buraya bir satır eklemek.
+   name  : card title            path : game's index.html (or an itch.io embed URL)
+   emoji : big icon on the card  colors : [from, to] gradient behind the icon
+   thumb : OPTIONAL image (e.g. "games/snake/cover.jpg") - replaces the emoji art
+   sub   : small text under the title
+   ===================================================== */
+const GAMES = [
+  { name:"Snake",  sub:"Klasik arcade", path:"games/snake/index.html", emoji:"🐍", colors:["#7be495","#1fa971"] },
+  // { name:"Doom", sub:"Shareware bölümü", path:"games/doom/index.html", emoji:"👹", colors:["#ff8a5c","#c0392b"] }, // şiddet içerir, kapalı
+  // { name:"2048",    sub:"Sayı bulmacası", path:"games/2048/index.html",    emoji:"🔢", colors:["#ffd86b","#ff9f43"] },
+  // { name:"Hextris", sub:"Çevir ve eşleştir",  path:"games/hextris/index.html", emoji:"⬡",  colors:["#7bdcff","#4d7cff"] },
+];
+
+/* =====================================================
+   CHAT
+   Without a server, chat only lives on THIS device (demo mode).
+   For real chat between people, create a free Firebase Realtime
+   Database and paste its URL below, e.g.
+     "https://your-project-default-rtdb.firebaseio.com"
+   (rules must allow read/write on /messages - see README note)
+   ===================================================== */
+const CHAT_DB_URL = "";
+/* ===================================================== */
+
+const $ = id => document.getElementById(id);
+
+/* background bubbles */
+(() => {
+  const b = $("bubbles");
+  for (let i = 0; i < 14; i++) {
+    const e = document.createElement("i"), s = 30 + Math.random() * 90;
+    e.style.cssText = `left:${Math.random()*100}%;width:${s}px;height:${s}px;animation-duration:${14+Math.random()*18}s;animation-delay:${-Math.random()*20}s`;
+    b.appendChild(e);
+  }
+})();
+
+/* game cards */
+function render(list) {
+  const grid = $("grid"); grid.textContent = "";
+  if (!list.length) { const d = document.createElement("div"); d.className = "empty"; d.textContent = "Oyun bulunamadı 😢"; grid.appendChild(d); return; }
+  list.forEach(g => {
+    const card = document.createElement("button");
+    card.className = "card"; card.type = "button";
+    const cover = document.createElement("div"); cover.className = "cover";
+    cover.style.background = `linear-gradient(135deg,${g.colors?.[0]||"#8f6bff"},${g.colors?.[1]||"#4d7cff"})`;
+    [[-30,-30,120],[70,60,90],[40,-20,50]].forEach(([x,y,s],i) => {
+      const bl = document.createElement("span"); bl.className = "blob";
+      bl.style.cssText = `width:${s}px;height:${s}px;${i===1?"right":"left"}:${x}px;${i===1?"bottom":"top"}:${y}px`;
+      cover.appendChild(bl);
+    });
+    const em = document.createElement("span"); em.className = "emoji"; em.textContent = g.emoji || "🎮"; cover.appendChild(em);
+    if (g.thumb) {
+      const img = document.createElement("img"); img.src = g.thumb; img.alt = ""; img.loading = "lazy";
+      img.onerror = () => img.remove(); cover.appendChild(img);
+    }
+    const info = document.createElement("div"); info.className = "info";
+    const t = document.createElement("div");
+    const n = document.createElement("div"); n.className = "title"; n.textContent = g.name;
+    const s = document.createElement("div"); s.className = "sub"; s.textContent = g.sub || "";
+    t.append(n, s);
+    const p = document.createElement("div"); p.className = "play"; p.textContent = "▶";
+    info.append(t, p); card.append(cover, info);
+    card.onclick = () => openGame(g);
+    grid.appendChild(card);
+  });
+}
+render(GAMES);
+$("search").addEventListener("input", e => {
+  const q = e.target.value.trim().toLowerCase();
+  render(GAMES.filter(g => (g.name + " " + (g.sub||"")).toLowerCase().includes(q)));
+});
+
+function openGame(g) {
+  $("ptitle").textContent = g.name;
+  $("frame").src = g.path;
+  $("player").classList.add("open");
+}
+function closeGame() { $("frame").src = "about:blank"; $("player").classList.remove("open"); }
+function goFull() { const f = $("frame"); (f.requestFullscreen || f.webkitRequestFullscreen || (()=>{})).call(f); }
+document.addEventListener("keydown", e => { if (e.key === "Escape" && $("player").classList.contains("open") && !document.fullscreenElement) closeGame(); });
+
+/* ---------------- chat ---------------- */
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} }
+};
+const remote = !!CHAT_DB_URL;
+$("mode").textContent = remote ? "Canlı sohbet" : "Demo modu: sadece bu cihazda";
+
+let nick = store.get("gz_nick") || "";
+let seen = new Set(), unread = 0, open = false, timer = null;
+const colors = ["#ff5c93","#7b4dff","#2ec4b6","#ff9f43","#4d7cff","#e84393"];
+const colorFor = s => colors[[...s].reduce((a,c)=>a+c.charCodeAt(0),0) % colors.length];
+
+function addMsg(m) {
+  if (seen.has(m.id)) return; seen.add(m.id);
+  const box = $("msgs"), d = document.createElement("div");
+  d.className = "msg" + (m.name === nick ? " me" : "");
+  const w = document.createElement("span"); w.className = "who"; w.textContent = m.name;
+  if (m.name !== nick) w.style.color = colorFor(m.name);
+  d.append(w, document.createTextNode(m.text)); box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+  if (!open && m.name !== nick) { unread++; $("badge").textContent = unread > 9 ? "9+" : unread; $("badge").style.display = "block"; }
+}
+function showChat() {
+  $("nameForm").style.display = "none"; $("msgs").style.display = "flex"; $("chatForm").style.display = "flex";
+  if (!$("msgs").children.length) {
+    const n = document.createElement("div"); n.className = "note";
+    n.textContent = "Kibar ol, kişisel bilgilerini paylaşma 💜"; $("msgs").appendChild(n);
+  }
+  startPolling();
+}
+async function loadRemote() {
+  try {
+    const r = await fetch(`${CHAT_DB_URL}/messages.json?orderBy="$key"&limitToLast=50`);
+    const data = await r.json() || {};
+    Object.keys(data).sort().forEach(id => addMsg({ id, name:String(data[id].name||"?").slice(0,16), text:String(data[id].text||"").slice(0,200) }));
+  } catch {}
+}
+function loadLocal() {
+  try { (JSON.parse(store.get("gz_msgs")||"[]")).forEach(addMsg); } catch {}
+}
+function startPolling() {
+  if (timer) return;
+  const tick = remote ? loadRemote : loadLocal;
+  tick(); timer = setInterval(tick, remote ? 3000 : 1500);
+}
+let lastSend = 0;
+$("chatForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const text = $("msgIn").value.trim().slice(0,200);
+  if (!text || Date.now() - lastSend < 1000) return;   // simple 1 msg/sec limit
+  lastSend = Date.now(); $("msgIn").value = "";
+  const m = { name:nick, text, t:Date.now() };
+  if (remote) {
+    try { await fetch(`${CHAT_DB_URL}/messages.json`, { method:"POST", body:JSON.stringify(m) }); loadRemote(); } catch {}
+  } else {
+    let arr = []; try { arr = JSON.parse(store.get("gz_msgs")||"[]"); } catch {}
+    arr.push({ id:"l"+m.t, ...m }); store.set("gz_msgs", JSON.stringify(arr.slice(-50))); loadLocal();
+  }
+});
+$("nameForm").addEventListener("submit", e => {
+  e.preventDefault();
+  nick = $("nameIn").value.trim().slice(0,16); if (!nick) return;
+  store.set("gz_nick", nick); showChat();
+});
+$("chatBtn").onclick = () => {
+  open = !open; $("chat").classList.toggle("open", open);
+  if (open) { unread = 0; $("badge").style.display = "none"; }
+};
+$("chatClose").onclick = () => { open = false; $("chat").classList.remove("open"); };
+if (nick) showChat();
+</script>
+</body>
+</html>
